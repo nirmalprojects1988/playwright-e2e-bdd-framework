@@ -4,20 +4,17 @@
   "description": "Playwright E2E BDD Framework with TypeScript and Cucumber",
   "scripts": {
     "pretest": "npm run clean",
-    
-    // FIX: All test scripts now explicitly use the Allure config file
     "test:ui": "cucumber-js tests/features --tags \"@ui\" --config cucumber.local.js && npm run report",
     "test:api": "cucumber-js tests/features --tags \"@api\" --config cucumber.local.js && npm run report",
     "test:smoke": "cucumber-js tests/features --tags \"@smoke\" --config cucumber.local.js && npm run report",
     "test:regression": "cucumber-js tests/features --tags \"@regression\" --config cucumber.local.js && npm run report",
     "test:all": "cucumber-js tests/features --config cucumber.local.js && npm run report",
-    
     "clean": "rimraf reports/allure-results/* reports/allure-report/*",
     "report": "node tests/support/generate-allure.js && npm run report:generate",
     "report:generate": "allure generate reports/allure-results --clean -o reports/allure-report",
     "report:open": "allure open reports/allure-report",
     "docker:build": "docker-compose build",
-    "docker:test": "docker-compose up --build --exit-code-from test"
+    "docker:test": "docker-compose up --build"
   },
   "dependencies": {
     "@cucumber/cucumber": "^10.0.1",
