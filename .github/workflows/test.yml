@@ -96,66 +96,22 @@ jobs:
         # Generate the HTML report using the downloaded history for trends
         allure generate reports/allure-results --clean -o reports/allure-report
 
-        # Save the NEW history back for the next run's download step
+        # Start of History Persistence & Deployment Prep (CRITICAL for Trend)
+        
+        # 1. Copy the NEW history from the generated report folder back to the results folder (for next run's DOWNLOAD step)
         NEW_HISTORY_SOURCE=reports/allure-report/history
         NEW_HISTORY_DEST=reports/allure-results/history
         mkdir -p ${NEW_HISTORY_DEST}
         cp -r ${NEW_HISTORY_SOURCE}/. ${NEW_HISTORY_DEST} || true
         
-        # Start of Header Injection Logic (Includes \n\n fix)
-        
-        # Create header with styling
-        cat << 'EOF' > header.html
-        <style>
-          .custom-header {
-            background: linear-gradient(135deg, #2c3e50, #3498db);
-            color: white;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-          }
-          .custom-header h1 {
-            margin: 0;
-            font-size: 24px;
-            font-weight: 600;
-          }
-          .metadata-box {
-            background: #f8f9fa;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 8px;
-            border-left: 4px solid #3498db;
-          }
-          .metadata-box p {
-            margin: 5px 0;
-            color: #2c3e50;
-          }
-          .metadata-box strong {
-            color: #2c3e50;
-          }
-        </style>
-        <div class="custom-header">
-          <h1>Playwright E2E BDD Framework - Test Reports</h1>
-        </div>
-        EOF
-        
-        # Add metadata about test run
-        TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
-        COMMIT_URL="https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA"
-        
-        cat << EOF > metadata.html
-        <div class="metadata-box">
-          <p><strong>Last Updated:</strong> $TIMESTAMP</p>
-          <p><strong>Branch:</strong> ${GITHUB_REF#refs/heads/}</p>
-          <p><strong>Commit:</strong> <a href="$COMMIT_URL" target="_blank">${GITHUB_SHA:0:7}</a></p>
-          <p><strong>Repository:</strong> <a href="https://github.com/$GITHUB_REPOSITORY" target="_blank">$GITHUB_REPOSITORY</a></p>
-        </div>
-        EOF
-        
-        # Combine with Allure report
+        # 2. Prepare the final deployment folder
         mkdir -p reports/allure-report-with-header
-        cp -r reports/allure-report/* reports/allure-report-with-header/
+        
+        # Install rsync for robust copying (needed for the next step)
+        sudo apt-get update && sudo apt-get install -y rsync || true
+        
+        # CRITICAL FIX: Use rsync for robust and complete file copying, ensuring the history folder is included
+        rsync -a reports/allure-report/ reports/allure-report-with-header/
         
         # Download favicon
         curl -s https://raw.githubusercontent.com/microsoft/playwright/main/assets/playwright-logo.svg > reports/allure-report-with-header/favicon.svg
