@@ -47,15 +47,13 @@ jobs:
     
     - name: Build and run tests in Docker
       run: |
-        # IMPORTANT: Ensure your docker-compose.yml has volume mapping:
-        # - ./reports/allure-results:/app/reports/allure-results
         docker-compose up --build --exit-code-from test
     
     # 2. FIX: Permissions after Docker run (CRITICAL for host access)
     - name: Fix permissions for Allure results
       if: always()
       run: |
-        # Ensure the runner can read the files written by the container (usually root)
+        # Ensures the runner can read the files written by the container (user: root)
         sudo chmod -R 777 reports/allure-results
 
     - name: Install Allure and setup reports directory
@@ -144,7 +142,7 @@ jobs:
         sed -i "s|<head>|<head>$CACHE_BUSTING_TAGS<link rel=\"icon\" type=\"image/svg+xml\" href=\"favicon.svg\"><title>Playwright E2E Test Report</title>|" reports/allure-report-with-header/index.html
         
         # 5. CRITICAL FIX: Robustly insert custom header/metadata after the <body> tag
-        # This replaces the fragile AWK/SED multi-line injection
+        # This resolves the previous AWK/SED errors and the blank report issue.
         CUSTOM_HEADER_CONTENT=$(cat header.html metadata.html)
         
         # Escape newlines and slashes in the content to make SED insertion safe
