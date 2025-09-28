@@ -47,7 +47,6 @@ jobs:
     
     - name: Build and run tests in Docker
       run: |
-        # This runs docker-compose on the host, which starts your 'test' service
         docker-compose up --build --exit-code-from test
     
     # 2. FIX: Permissions after Docker run (CRITICAL for host access due to user: root)
