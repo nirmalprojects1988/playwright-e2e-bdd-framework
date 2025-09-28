@@ -12,6 +12,5 @@ services:
       - RETRIES=2
     user: root
     
-    # CRITICAL FIX: Run the specific NPM script that executes your tests
     command: npm run test:all
     restart: "no"
