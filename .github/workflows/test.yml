@@ -63,15 +63,15 @@ jobs:
       run: |
         sudo chmod -R 777 reports/allure-results
 
-    # 4.5. CRITICAL FIX: Convert Cucumber JSON to Allure Results on the host machine
-    - name: Convert Cucumber JSON to Allure Format
+    # 4.5. CRITICAL FIX: Convert Cucumber JSON to Allure Results on the host machine (Optimized)
+    - name: Convert Cucumber JSON to Allure Format (Optimized)
       if: always()
       run: |
-        # Ensure node dependencies are available on the host machine for the script
-        npm install
-        
+        # REDUNDANT npm install HAS BEEN REMOVED to save 2 minutes.
+        # Dependencies for generate-allure.js are now expected to be available
+        # via the npm cache (Step 1) and package-lock.json.
+
         if [ -f reports/cucumber.json ]; then
-          # This executes the conversion script on the host, using the cucumber.json file
           node tests/support/generate-allure.js
           echo "Conversion successful."
         else
