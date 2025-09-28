@@ -9,8 +9,8 @@ on:
 # Sets permissions of the GITHUB_TOKEN
 permissions:
   contents: read
-  pages: write
-  id-token: write
+  pages: write # Required for deploying to GitHub Pages
+  id-token: write # Required for deployment action
 
 # Allow one concurrent deployment
 concurrency:
@@ -24,45 +24,59 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # Download history from GitHub Pages
+
     - name: Download Allure history
+      # We run this always to attempt to fetch previous data
       if: always()
       run: |
-        PREVIOUS_HISTORY_DIR=allure-history
-        # Create history directory
-        mkdir -p reports/allure-results/history
-        # Download history if it exists
-        if curl -s -o /dev/null -w "%{http_code}" https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history/ | grep -q "200"; then
-          wget https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history/history.json -P reports/allure-results/history/ || true
-          wget https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history/history-trend.json -P reports/allure-results/history/ || true
-          wget https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history/duration-trend.json -P reports/allure-results/history/ || true
-          wget https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history/categories-trend.json -P reports/allure-results/history/ || true
-          wget https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history/retry-trend.json -P reports/allure-results/history/ || true
+        PREVIOUS_HISTORY_DIR=reports/allure-results/history
+        # Construct the base URL for the previous report
+        REPORT_BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+        
+        # Create history directory in the results folder
+        mkdir -p ${PREVIOUS_HISTORY_DIR}
+
+        # Check if the history.json file exists on GH Pages using curl (silent and fail on error)
+        if curl -s -f -o /dev/null ${REPORT_BASE_URL}/history/history.json; then
+          echo "Previous history found, downloading files..."
+          # Use wget to recursively download all necessary trend files into the history folder
+          wget -r -l1 -np -nd -A '*-trend.json,history.json' ${REPORT_BASE_URL}/history/ -P ${PREVIOUS_HISTORY_DIR} || true
+        else
+          echo "No previous history found or not accessible. Generating first report."
         fi
 
     - name: Set up Docker Compose
       uses: ndeloof/install-compose-action@v0.0.1
-    
+      
     - name: Build and run tests in Docker
       run: |
         docker-compose up --build --exit-code-from test
-    
+      
     - name: Install Allure and setup reports directory
       if: always()
       run: |
         curl -o allure-2.24.1.tgz -OLs https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.24.1/allure-commandline-2.24.1.tgz
         sudo tar -zxvf allure-2.24.1.tgz -C /opt/
         sudo ln -s /opt/allure-2.24.1/bin/allure /usr/bin/allure
+        # Create directories. The 'allure-results' must contain the downloaded history now.
         sudo mkdir -p reports/allure-results reports/allure-report
         sudo chmod -R 777 reports
         sudo chown -R $USER:$USER reports
-    
+      
+  
     - name: Generate Allure Report
       if: always()
       run: |
-        npm run report:generate
+        # 1. Generate the report, merging the history from 'reports/allure-results/history'
+        allure generate reports/allure-results --clean -o reports/allure-report
         
-        # Create header with styling
+        # 2. CRITICAL STEP: Copy the *NEWLY GENERATED* history from the report 
+        #    back into the 'allure-results' folder. This ensures the files 
+        #    are correct for the *next* workflow run to download.
+        mkdir -p reports/allure-results/history
+        cp -r reports/allure-report/history/* reports/allure-results/history/ || true
+        
+        # Create header with styling (Rest of this section is mostly for styling, which is fine)
         cat << 'EOF' > header.html
         <style>
           .custom-header {
@@ -113,11 +127,8 @@ jobs:
         
         # Combine with Allure report
         mkdir -p reports/allure-report-with-header
+        # Copy the full generated report (including history subfolder)
         cp -r reports/allure-report/* reports/allure-report-with-header/
-        
-        # Create history directory in published report
-        mkdir -p reports/allure-report-with-header/history
-        cp -r reports/allure-results/history/* reports/allure-report-with-header/history/ || true
         
         # Download favicon
         curl -s https://raw.githubusercontent.com/microsoft/playwright/main/assets/playwright-logo.svg > reports/allure-report-with-header/favicon.svg
@@ -144,4 +155,3 @@ jobs:
       if: always()
       id: deployment
       uses: actions/deploy-pages@v4
-
