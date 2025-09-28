@@ -4,5 +4,10 @@ services:
     build: .
     volumes:
       - ./reports:/app/reports
+      - ./src/fixtures:/app/src/fixtures
     environment:
       - CI=true
+      - NODE_ENV=ci
+      - PWDEBUG=0
+      - RETRIES=2
+    user: root

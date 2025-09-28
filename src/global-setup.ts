@@ -12,16 +12,21 @@ async function globalSetup() {
   const loginPage = new LoginPage(page);
   await loginPage.login();
   
-  // Create fixtures directory if it doesn't exist
-  const fixturesDir = path.join(process.cwd(), 'src/fixtures');
-  if (!fs.existsSync(fixturesDir)) {
-    fs.mkdirSync(fixturesDir, { recursive: true });
+  try {
+    // Create fixtures directory if it doesn't exist
+    const fixturesDir = path.join(process.cwd(), 'src/fixtures');
+    if (!fs.existsSync(fixturesDir)) {
+      fs.mkdirSync(fixturesDir, { recursive: true });
+    }
+    
+    // Save signed-in state
+    const storage = await page.context().storageState();
+    const authFile = path.join(fixturesDir, 'auth.json');
+    fs.writeFileSync(authFile, JSON.stringify(storage), { mode: 0o666 });
+  } catch (error) {
+    console.error('Failed to save auth state:', error);
+    throw error;
   }
-  
-  // Save signed-in state
-  const storage = await page.context().storageState();
-  const authFile = path.join(fixturesDir, 'auth.json');
-  fs.writeFileSync(authFile, JSON.stringify(storage));
   
   await browser.close();
 }
