@@ -10,7 +10,6 @@
     "test:smoke": "cucumber-js tests/features --tags \"@smoke\" --config cucumber.local.js",
     "test:regression": "cucumber-js tests/features --tags \"@regression\" --config cucumber.local.js",
     
-    # CRITICAL RESTORATION: Generate the raw JSON file for your custom conversion script.
     "test:all": "cucumber-js tests/features --config cucumber.local.js --format json:reports/cucumber.json",
     
     "clean": "rimraf reports/allure-results/* reports/allure-report/* reports/cucumber.json",
