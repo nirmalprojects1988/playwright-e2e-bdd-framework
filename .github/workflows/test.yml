@@ -81,7 +81,7 @@ jobs:
         # Use safe copy: cp -r source/. destination
         cp -r ${NEW_HISTORY_SOURCE}/. ${NEW_HISTORY_DEST} || true
         
-        # Create header with styling (saved to files)
+        # Create header with styling
         cat << 'EOF' > header.html
         <style>
           .custom-header {
@@ -130,9 +130,6 @@ jobs:
         </div>
         EOF
         
-        # Combine header and metadata into one variable for stable SED insertion
-        CUSTOM_HEADER_CONTENT=$(cat header.html metadata.html)
-
         # Combine with Allure report
         mkdir -p reports/allure-report-with-header
         cp -r reports/allure-report/* reports/allure-report-with-header/
@@ -144,13 +141,18 @@ jobs:
         CACHE_BUSTING_TAGS='<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0">'
         
         # Update the report HTML with our custom content, favicon, and cache tags
-        # This SED injection into <head> is fine.
         sed -i "s|<head>|<head>$CACHE_BUSTING_TAGS<link rel=\"icon\" type=\"image/svg+xml\" href=\"favicon.svg\"><title>Playwright E2E Test Report</title>|" reports/allure-report-with-header/index.html
         
-        # 5. CRITICAL FIX: Replace AWK with stable SED for custom header injection
-        # Use SED to insert the multi-line content after the <body> tag
+        # 5. CRITICAL FIX: Robustly insert custom header/metadata after the <body> tag
+        # This replaces the fragile AWK/SED multi-line injection
+        CUSTOM_HEADER_CONTENT=$(cat header.html metadata.html)
+        
+        # Escape newlines and slashes in the content to make SED insertion safe
+        ESCAPED_CONTENT=$(echo "$CUSTOM_HEADER_CONTENT" | sed ':a;N;$!ba;s/\n/\\n/g;s/[\&/]/\\&/g')
+        
+        # Use stable SED to insert the escaped content immediately after the <body> tag
         sed -i "/<body>/a\\
-        $(echo "$CUSTOM_HEADER_CONTENT" | sed 's/[\&/]/\\&/g')" reports/allure-report-with-header/index.html
+        $ESCAPED_CONTENT" reports/allure-report-with-header/index.html
 
     - name: Setup Pages
       if: always()
