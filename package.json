@@ -1,0 +1,32 @@
+{
+  "name": "playwright-e2e-bdd-framework",
+  "version": "1.0.0",
+  "description": "Playwright E2E BDD Framework with TypeScript and Cucumber",
+  "scripts": {
+    "pretest": "npm run clean",
+    "test:ui": "cucumber-js tests/features --tags \"@ui\"",
+    "test:api": "cucumber-js tests/features --tags \"@api\"",
+    "test:smoke": "cucumber-js tests/features --tags \"@smoke\"",
+    "test:regression": "cucumber-js tests/features --tags \"@regression\"",
+    "test:all": "cucumber-js tests/features",
+    "clean": "rimraf reports/allure-results/* reports/allure-report/*",
+    "report:generate": "allure generate reports/allure-results --clean -o reports/allure-report",
+    "report:open": "allure open reports/allure-report",
+    "docker:build": "docker-compose build",
+    "docker:test": "docker-compose up --build"
+  },
+  "dependencies": {
+    "@cucumber/cucumber": "^10.0.1",
+    "@playwright/test": "^1.39.0",
+    "allure-commandline": "^2.24.1",
+    "allure-cucumberjs": "^2.8.1",
+    "playwright": "^1.39.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.8.6",
+    "rimraf": "^5.0.5",
+    "tsconfig-paths": "^4.2.0"
+  }
+}
