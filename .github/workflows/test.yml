@@ -64,7 +64,9 @@ jobs:
     - name: Fix permissions for Allure results
       if: always()
       run: |
-        sudo chmod -R 777 reports/allure-results
+        # Ensure base reports directories exist and have open permissions
+        sudo mkdir -p reports/allure-results reports/allure-report
+        sudo chmod -R 777 reports
 
     # 4.5. CRITICAL FIX: Convert Cucumber JSON to Allure Results on the host machine (STABLE & FAST)
     - name: Convert Cucumber JSON to Allure Format (Stable)
@@ -75,10 +77,14 @@ jobs:
         npm ci 
         
         if [ -f reports/cucumber.json ]; then
+          # Ensure target directory for Allure results exists before writing
+          mkdir -p reports/allure-results
+          
+          # Run the conversion script
           node tests/support/generate-allure.js
           echo "Conversion successful."
         else
-          echo "Warning: reports/cucumber.json not found. Allure report may be empty."
+          echo "Warning: reports/cucumber.json not found. Allure report may be empty. Proceeding to generation."
         fi
 
     # 5. INSTALL ALLURE & GENERATE REPORT
@@ -89,6 +95,8 @@ jobs:
         curl -o allure-2.24.1.tgz -OLs https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.24.1/allure-commandline-2.24.1.tgz
         sudo tar -zxvf allure-2.24.1.tgz -C /opt/
         sudo ln -s /opt/allure-2.24.1/bin/allure /usr/bin/allure
+        
+        # Ensure all required directories are present before Allure generate command
         sudo mkdir -p reports/allure-results reports/allure-report
         sudo chmod -R 777 reports
         sudo chown -R $USER:$USER reports
