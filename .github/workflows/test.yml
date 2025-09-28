@@ -68,7 +68,23 @@ jobs:
         sudo mkdir -p reports/allure-results reports/allure-report
         sudo chmod -R 777 reports
 
-    # 4.5. ***THIS ENTIRE STEP IS DELETED*** # The Allure result files are now generated directly in the container by 'npm run test:all'.
+    # 4.5. CRITICAL RESTORATION: Convert Cucumber JSON to Allure Results (Stable)
+    - name: Convert Cucumber JSON to Allure Format (Stable)
+      if: always()
+      run: |
+        # Run 'npm ci' to install dependencies necessary for 'generate-allure.js'
+        npm ci 
+        
+        if [ -f reports/cucumber.json ]; then
+          # Ensure target directory for Allure results exists before writing
+          mkdir -p reports/allure-results
+          
+          # Run the conversion script
+          node tests/support/generate-allure.js
+          echo "Conversion successful."
+        else
+          echo "Warning: reports/cucumber.json not found. Allure report may be empty. Proceeding to generation."
+        fi
 
     # 5. INSTALL ALLURE & GENERATE REPORT
     - name: Generate Allure Report
@@ -88,7 +104,6 @@ jobs:
         sudo apt-get update && sudo apt-get install -y rsync || true
         
         # Generate the HTML report using the downloaded history for trends
-        # Allure uses the files from reports/allure-results created by the Docker step.
         allure generate reports/allure-results --clean -o reports/allure-report
 
         # Start of History Persistence & Deployment Prep (CRITICAL for Trend)
@@ -98,7 +113,7 @@ jobs:
         NEW_HISTORY_DEST=reports/allure-results/history
         mkdir -p ${NEW_HISTORY_DEST}
         
-        # Use rsync for the history copy operation and verify source exists
+        # CRITICAL FIX: Use rsync for the history copy operation and verify source exists
         if [ -d ${NEW_HISTORY_SOURCE} ]; then
           rsync -a ${NEW_HISTORY_SOURCE}/ ${NEW_HISTORY_DEST}/
           echo "Successfully copied new history to results directory."
