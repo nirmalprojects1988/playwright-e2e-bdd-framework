@@ -142,7 +142,6 @@ jobs:
         sed -i "s|<head>|<head>$CACHE_BUSTING_TAGS<link rel=\"icon\" type=\"image/svg+xml\" href=\"favicon.svg\"><title>Playwright E2E Test Report</title>|" reports/allure-report-with-header/index.html
         
         # 5. CRITICAL FIX: Robustly insert custom header/metadata after the <body> tag
-        # This resolves the previous AWK/SED errors and the blank report issue.
         CUSTOM_HEADER_CONTENT=$(cat header.html metadata.html)
         
         # Escape newlines and slashes in the content to make SED insertion safe
