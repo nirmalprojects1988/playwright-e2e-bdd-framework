@@ -33,7 +33,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-node-
 
-    # 2. DOWNLOAD HISTORY (For Trends - NOW MORE ROBUST)
+    # 2. DOWNLOAD HISTORY (For Trends - ROBUST VERSION)
     - name: Download Allure history
       if: always()
       run: |
@@ -66,12 +66,13 @@ jobs:
       run: |
         sudo chmod -R 777 reports/allure-results
 
-    # 4.5. CRITICAL FIX: Convert Cucumber JSON to Allure Results on the host machine (Optimized)
-    - name: Convert Cucumber JSON to Allure Format (Optimized)
+    # 4.5. CRITICAL FIX: Convert Cucumber JSON to Allure Results on the host machine (STABLE & FAST)
+    - name: Convert Cucumber JSON to Allure Format (Stable)
       if: always()
       run: |
-        # Ensure node dependencies are available on the host machine for the script
-        # npm install is REMOVED for speed; relying on cache and previous docker build.
+        # CRITICAL FIX: Run 'npm ci' to install dependencies necessary for 'generate-allure.js'
+        # This will be fast due to the cache from Step 1.
+        npm ci 
         
         if [ -f reports/cucumber.json ]; then
           node tests/support/generate-allure.js
