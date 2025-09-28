@@ -9,11 +9,14 @@
     "test:api": "cucumber-js tests/features --tags \"@api\" --config cucumber.local.js",
     "test:smoke": "cucumber-js tests/features --tags \"@smoke\" --config cucumber.local.js",
     "test:regression": "cucumber-js tests/features --tags \"@regression\" --config cucumber.local.js",
-    "test:all": "cucumber-js tests/features --config cucumber.local.js",
+    
+    // CRITICAL FIX: Use the native Allure reporter to ensure correct status capture and report files.
+    // The previous '--format json:reports/cucumber.json' is removed, and the custom conversion script is no longer needed.
+    "test:all": "cucumber-js tests/features --config cucumber.local.js --format @mmisty/cucumber-allure-reporter",
     
     "clean": "rimraf reports/allure-results/* reports/allure-report/* reports/cucumber.json",
     
-    "report:convert": "node tests/support/generate-allure.js && npm run report:generate",
+    // The custom 'report:convert' script is deleted.
     "report:generate": "allure generate reports/allure-results --clean -o reports/allure-report",
     "report:open": "allure open reports/allure-report",
     "docker:build": "docker-compose build"
