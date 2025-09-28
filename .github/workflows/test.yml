@@ -47,13 +47,14 @@ jobs:
     
     - name: Build and run tests in Docker
       run: |
+        # This runs docker-compose on the host, which starts your 'test' service
         docker-compose up --build --exit-code-from test
     
-    # 2. FIX: Permissions after Docker run (CRITICAL for host access)
+    # 2. FIX: Permissions after Docker run (CRITICAL for host access due to user: root)
     - name: Fix permissions for Allure results
       if: always()
       run: |
-        # Ensures the runner can read the files written by the container (user: root)
+        # Ensures the runner can read the files written by the container
         sudo chmod -R 777 reports/allure-results
 
     - name: Install Allure and setup reports directory
@@ -76,7 +77,6 @@ jobs:
         NEW_HISTORY_SOURCE=reports/allure-report/history
         NEW_HISTORY_DEST=reports/allure-results/history
         mkdir -p ${NEW_HISTORY_DEST}
-        # Use safe copy: cp -r source/. destination
         cp -r ${NEW_HISTORY_SOURCE}/. ${NEW_HISTORY_DEST} || true
         
         # Create header with styling
