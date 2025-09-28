@@ -12,7 +12,6 @@ services:
       - RETRIES=2
     user: root
     
-    # Runs the updated 'docker:test' which uses 'test:all' script 
-    # (assuming no explicit 'command' override is present in your docker-compose file)
-    command: npm run docker:test 
+    # CRITICAL FIX: Run the specific NPM script that executes your tests
+    command: npm run test:all
     restart: "no"
