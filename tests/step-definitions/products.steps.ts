@@ -37,7 +37,7 @@ Then('each product should have required fields', function() {
       expect(product).toHaveProperty(field);
     });
     // Validate types
-    expect(typeof product.id).toBe('boolean');
+    expect(typeof product.id).toBe('number');
     expect(typeof product.title).toBe('string');
     expect(typeof product.price).toBe('number');
     expect(typeof product.description).toBe('string');
