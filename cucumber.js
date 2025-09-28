@@ -4,9 +4,14 @@ module.exports = {
     require: ['tests/step-definitions/**/*.ts', 'tests/support/*.ts'],
     format: [
       'progress',
-      ['allure-cucumberjs', 'reports/allure-results']
+      'allure-cucumberjs'
     ],
-    formatOptions: { snippetInterface: 'async-aware' },
+    formatOptions: { 
+      snippetInterface: 'async-aware',
+      'allure-cucumberjs': {
+        resultsDir: 'reports/allure-results'
+      }
+    },
     timeout: 30000
   }
 }
