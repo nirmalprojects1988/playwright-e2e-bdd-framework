@@ -3,8 +3,8 @@ module.exports = {
     requireModule: ['ts-node/register'],
     require: ['tests/step-definitions/**/*.ts', 'tests/support/*.ts'],
     format: [
-      'progress-bar',
-      'allure-cucumberjs:./reports/allure-results'
+      'progress',
+      ['allure-cucumberjs', 'reports/allure-results']
     ],
     formatOptions: { snippetInterface: 'async-aware' },
     timeout: 30000
