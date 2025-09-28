@@ -23,10 +23,20 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+
+    - name: Set up Docker Compose
+      uses: ndeloof/install-compose-action@v0.0.1
     
     - name: Build and run tests in Docker
       run: |
         docker-compose up --build --exit-code-from test
+    
+    - name: Install Allure
+      if: always()
+      run: |
+        curl -o allure-2.24.1.tgz -OLs https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.24.1/allure-commandline-2.24.1.tgz
+        sudo tar -zxvf allure-2.24.1.tgz -C /opt/
+        sudo ln -s /opt/allure-2.24.1/bin/allure /usr/bin/allure
     
     - name: Generate Allure Report
       if: always()
@@ -69,6 +79,13 @@ jobs:
     
     - name: Run tests
       run: npm run test:all
+    
+    - name: Install Allure
+      if: always()
+      run: |
+        curl -o allure-2.24.1.tgz -OLs https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.24.1/allure-commandline-2.24.1.tgz
+        sudo tar -zxvf allure-2.24.1.tgz -C /opt/
+        sudo ln -s /opt/allure-2.24.1/bin/allure /usr/bin/allure
     
     - name: Generate Allure Report
       if: always()
