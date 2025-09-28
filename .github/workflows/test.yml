@@ -9,8 +9,8 @@ on:
 # Sets permissions of the GITHUB_TOKEN
 permissions:
   contents: read
-  pages: write # Required for deploying to GitHub Pages
-  id-token: write # Required for deployment action
+  pages: write
+  id-token: write
 
 # Allow one concurrent deployment
 concurrency:
@@ -24,32 +24,29 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # ----------------------------------------------------
-    # FIX 1: Robustly download history (for trends)
-    # ----------------------------------------------------
+    # Download history from GitHub Pages
     - name: Download Allure history
       if: always()
       run: |
-        PREVIOUS_HISTORY_DIR=reports/allure-results/history
-        REPORT_BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
-        
-        mkdir -p ${PREVIOUS_HISTORY_DIR}
-
-        if curl -s -f -o /dev/null ${REPORT_BASE_URL}/history/history.json; then
-          echo "Previous history found, downloading files..."
-          # Download all necessary trend files into the history folder
-          wget -r -l1 -np -nd -A '*-trend.json,history.json' ${REPORT_BASE_URL}/history/ -P ${PREVIOUS_HISTORY_DIR} || true
-        else
-          echo "No previous history found or not accessible. Generating first report."
+        PREVIOUS_HISTORY_DIR=allure-history
+        # Create history directory
+        mkdir -p reports/allure-results/history
+        # Download history if it exists
+        if curl -s -o /dev/null -w "%{http_code}" https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history/ | grep -q "200"; then
+          wget https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history/history.json -P reports/allure-results/history/ || true
+          wget https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history/history-trend.json -P reports/allure-results/history/ || true
+          wget https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history/duration-trend.json -P reports/allure-results/history/ || true
+          wget https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history/categories-trend.json -P reports/allure-results/history/ || true
+          wget https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history/retry-trend.json -P reports/allure-results/history/ || true
         fi
 
     - name: Set up Docker Compose
       uses: ndeloof/install-compose-action@v0.0.1
-      
+    
     - name: Build and run tests in Docker
       run: |
         docker-compose up --build --exit-code-from test
-      
+    
     - name: Install Allure and setup reports directory
       if: always()
       run: |
@@ -59,19 +56,11 @@ jobs:
         sudo mkdir -p reports/allure-results reports/allure-report
         sudo chmod -R 777 reports
         sudo chown -R $USER:$USER reports
-      
-    # ----------------------------------------------------
-    # FIX 2: Generate Report, Save NEW History, and ADD CACHE BUSTING
-    # ----------------------------------------------------
+    
     - name: Generate Allure Report
       if: always()
       run: |
-        # 1. Generate the report, merging the downloaded history
-        allure generate reports/allure-results --clean -o reports/allure-report
-        
-        # 2. Save the NEWLY GENERATED history back into the results folder for the next run
-        mkdir -p reports/allure-results/history
-        cp -r reports/allure-report/history/* reports/allure-results/history/ || true
+        npm run report:generate
         
         # Create header with styling
         cat << 'EOF' > header.html
@@ -126,16 +115,19 @@ jobs:
         mkdir -p reports/allure-report-with-header
         cp -r reports/allure-report/* reports/allure-report-with-header/
         
+        # Create history directory in published report
+        mkdir -p reports/allure-report-with-header/history
+        cp -r reports/allure-results/history/* reports/allure-report-with-header/history/ || true
+        
         # Download favicon
         curl -s https://raw.githubusercontent.com/microsoft/playwright/main/assets/playwright-logo.svg > reports/allure-report-with-header/favicon.svg
         
-        # 3. CRITICAL CACHE BUSTING FIX: Inject no-cache meta tags into index.html
-        CACHE_BUSTING_TAGS='<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0">'
-        
-        sed -i "s|<head>|<head>$CACHE_BUSTING_TAGS<link rel=\"icon\" type=\"image/svg+xml\" href=\"favicon.svg\"><title>Playwright E2E Test Report</title>|" reports/allure-report-with-header/index.html
-        
         # Combine header, metadata, and report
-        cat header.html metadata.html reports/allure-report-with-header/index.html > temp && mv temp reports/allure-report-with-header/index.html
+        cat header.html metadata.html > combined_header.html
+        
+        # Update the report HTML with our custom content and favicon
+        sed -i 's/<head>/<head><link rel="icon" type="image\/svg+xml" href="favicon.svg"><title>Playwright E2E Test Report<\/title>/' reports/allure-report-with-header/index.html
+        cat combined_header.html reports/allure-report-with-header/index.html > temp && mv temp reports/allure-report-with-header/index.html
 
     - name: Setup Pages
       if: always()
@@ -152,3 +144,4 @@ jobs:
       if: always()
       id: deployment
       uses: actions/deploy-pages@v4
+
