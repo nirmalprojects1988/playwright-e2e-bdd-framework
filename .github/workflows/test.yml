@@ -59,80 +59,45 @@ jobs:
     
     - name: Generate Allure Report
       if: always()
-      run: npm run report:generate
-
-    - name: Update Report Index and Preserve History
-      if: success() && github.ref == 'refs/heads/main'
       run: |
-        # Add custom index page header
+        npm run report:generate
+        
+        # Add metadata about test run
+        TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+        echo "<div style='background: #f8f9fa; padding: 12px; margin-bottom: 20px; border-radius: 4px;'>" > metadata.html
+        echo "<strong>Last Updated:</strong> $TIMESTAMP<br>" >> metadata.html
+        echo "<strong>Branch:</strong> ${GITHUB_REF#refs/heads/}<br>" >> metadata.html
+        echo "<strong>Commit:</strong> $GITHUB_SHA<br>" >> metadata.html
+        echo "</div>" >> metadata.html
+        
+        # Add custom header and metadata
         echo '<h1>Playwright E2E BDD Framework - Test Reports</h1>' > header.html
+        
         # Combine with Allure report
         mkdir -p reports/allure-report-with-header
         cp -r reports/allure-report/* reports/allure-report-with-header/
+        
         # Create history directory in published report
         mkdir -p reports/allure-report-with-header/history
-        # Copy history files to published report
         cp -r reports/allure-results/history/* reports/allure-report-with-header/history/ || true
-        # Update index page with header
-        cat header.html | cat - reports/allure-report-with-header/index.html > temp && mv temp reports/allure-report-with-header/index.html
+        
+        # Combine header, metadata, and report
+        cat header.html metadata.html > combined_header.html
+        cat combined_header.html reports/allure-report-with-header/index.html > temp && mv temp reports/allure-report-with-header/index.html
 
     - name: Setup Pages
-      if: success() && github.ref == 'refs/heads/main'
+      if: always()
       uses: actions/configure-pages@v4
 
     - name: Upload Report to Pages
-      if: success() && github.ref == 'refs/heads/main'
+      if: always()
       uses: actions/upload-pages-artifact@v3
       with:
         path: reports/allure-report-with-header
-        retention-days: 30
+        retention-days: 90
 
     - name: Deploy to GitHub Pages
-      if: success() && github.ref == 'refs/heads/main'
+      if: always()
       id: deployment
       uses: actions/deploy-pages@v4
 
-  test-direct:
-    runs-on: ubuntu-latest
-    needs: test-docker
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18.x'
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps chromium
-    
-    - name: Run tests
-      run: npm run test:all
-    
-    - name: Install Allure and setup reports directory
-      if: always()
-      run: |
-        curl -o allure-2.24.1.tgz -OLs https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.24.1/allure-commandline-2.24.1.tgz
-        sudo tar -zxvf allure-2.24.1.tgz -C /opt/
-        sudo ln -s /opt/allure-2.24.1/bin/allure /usr/bin/allure
-        sudo mkdir -p reports/allure-results reports/allure-report
-        sudo chmod -R 777 reports
-        sudo chown -R $USER:$USER reports
-    
-    - name: Generate Allure Report
-      if: always()
-      run: |
-        npm run report:generate
-    
-    - name: Upload Test Results
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results
-        path: reports/
-        retention-days: 30
