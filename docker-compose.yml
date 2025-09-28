@@ -12,7 +12,7 @@ services:
       - RETRIES=2
     user: root
     
-    # CRITICAL FIX: The '|| true' ensures a non-zero test exit code is masked, 
-    # forcing the workflow to proceed to the 'if: always()' reporting steps.
+    # The '|| true' mask remains to force workflow continuation, but the command
+    # now executes the native Allure reporter from package.json.
     command: sh -c "npm run test:all || true" 
     restart: "no"
