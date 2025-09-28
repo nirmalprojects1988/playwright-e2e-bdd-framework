@@ -31,18 +31,15 @@ jobs:
       run: |
         docker-compose up --build --exit-code-from test
     
-    - name: Install Allure
+    - name: Install Allure and setup reports directory
       if: always()
       run: |
         curl -o allure-2.24.1.tgz -OLs https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.24.1/allure-commandline-2.24.1.tgz
         sudo tar -zxvf allure-2.24.1.tgz -C /opt/
         sudo ln -s /opt/allure-2.24.1/bin/allure /usr/bin/allure
-        
-    - name: Create reports directory
-      if: always()
-      run: |
-        mkdir -p reports/allure-results reports/allure-report
-        chmod -R 777 reports
+        sudo mkdir -p reports/allure-results reports/allure-report
+        sudo chmod -R 777 reports
+        sudo chown -R $USER:$USER reports
     
     - name: Generate Allure Report
       if: always()
@@ -86,18 +83,15 @@ jobs:
     - name: Run tests
       run: npm run test:all
     
-    - name: Install Allure
+    - name: Install Allure and setup reports directory
       if: always()
       run: |
         curl -o allure-2.24.1.tgz -OLs https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.24.1/allure-commandline-2.24.1.tgz
         sudo tar -zxvf allure-2.24.1.tgz -C /opt/
         sudo ln -s /opt/allure-2.24.1/bin/allure /usr/bin/allure
-
-    - name: Create reports directory
-      if: always()
-      run: |
-        mkdir -p reports/allure-results reports/allure-report
-        chmod -R 777 reports
+        sudo mkdir -p reports/allure-results reports/allure-report
+        sudo chmod -R 777 reports
+        sudo chown -R $USER:$USER reports
     
     - name: Generate Allure Report
       if: always()
