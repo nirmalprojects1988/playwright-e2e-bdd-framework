@@ -4,8 +4,9 @@ module.exports = {
     require: ['tests/step-definitions/**/*.ts', 'tests/support/*.ts'],
     format: [
       'progress',
-      // FIX: Use the standard string path format for schema validation
-      ['./tests/support/allure.setup.ts', '/app/reports/allure-results'] 
+      // CRITICAL FIX: Use the standard Cucumber JSON formatter. 
+      // This is extremely stable and won't throw EISDIR.
+      'json:reports/cucumber.json' 
     ],
     formatOptions: { 
       snippetInterface: 'async-aware'
