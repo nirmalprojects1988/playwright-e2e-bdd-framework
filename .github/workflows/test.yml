@@ -24,22 +24,20 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-
+    # ----------------------------------------------------
+    # FIX 1: Robustly download history (for trends)
+    # ----------------------------------------------------
     - name: Download Allure history
-      # We run this always to attempt to fetch previous data
       if: always()
       run: |
         PREVIOUS_HISTORY_DIR=reports/allure-results/history
-        # Construct the base URL for the previous report
         REPORT_BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
         
-        # Create history directory in the results folder
         mkdir -p ${PREVIOUS_HISTORY_DIR}
 
-        # Check if the history.json file exists on GH Pages using curl (silent and fail on error)
         if curl -s -f -o /dev/null ${REPORT_BASE_URL}/history/history.json; then
           echo "Previous history found, downloading files..."
-          # Use wget to recursively download all necessary trend files into the history folder
+          # Download all necessary trend files into the history folder
           wget -r -l1 -np -nd -A '*-trend.json,history.json' ${REPORT_BASE_URL}/history/ -P ${PREVIOUS_HISTORY_DIR} || true
         else
           echo "No previous history found or not accessible. Generating first report."
@@ -58,25 +56,24 @@ jobs:
         curl -o allure-2.24.1.tgz -OLs https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.24.1/allure-commandline-2.24.1.tgz
         sudo tar -zxvf allure-2.24.1.tgz -C /opt/
         sudo ln -s /opt/allure-2.24.1/bin/allure /usr/bin/allure
-        # Create directories. The 'allure-results' must contain the downloaded history now.
         sudo mkdir -p reports/allure-results reports/allure-report
         sudo chmod -R 777 reports
         sudo chown -R $USER:$USER reports
       
-  
+    # ----------------------------------------------------
+    # FIX 2: Generate Report, Save NEW History, and ADD CACHE BUSTING
+    # ----------------------------------------------------
     - name: Generate Allure Report
       if: always()
       run: |
-        # 1. Generate the report, merging the history from 'reports/allure-results/history'
+        # 1. Generate the report, merging the downloaded history
         allure generate reports/allure-results --clean -o reports/allure-report
         
-        # 2. CRITICAL STEP: Copy the *NEWLY GENERATED* history from the report 
-        #    back into the 'allure-results' folder. This ensures the files 
-        #    are correct for the *next* workflow run to download.
+        # 2. Save the NEWLY GENERATED history back into the results folder for the next run
         mkdir -p reports/allure-results/history
         cp -r reports/allure-report/history/* reports/allure-results/history/ || true
         
-        # Create header with styling (Rest of this section is mostly for styling, which is fine)
+        # Create header with styling
         cat << 'EOF' > header.html
         <style>
           .custom-header {
@@ -127,18 +124,18 @@ jobs:
         
         # Combine with Allure report
         mkdir -p reports/allure-report-with-header
-        # Copy the full generated report (including history subfolder)
         cp -r reports/allure-report/* reports/allure-report-with-header/
         
         # Download favicon
         curl -s https://raw.githubusercontent.com/microsoft/playwright/main/assets/playwright-logo.svg > reports/allure-report-with-header/favicon.svg
         
-        # Combine header, metadata, and report
-        cat header.html metadata.html > combined_header.html
+        # 3. CRITICAL CACHE BUSTING FIX: Inject no-cache meta tags into index.html
+        CACHE_BUSTING_TAGS='<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0">'
         
-        # Update the report HTML with our custom content and favicon
-        sed -i 's/<head>/<head><link rel="icon" type="image\/svg+xml" href="favicon.svg"><title>Playwright E2E Test Report<\/title>/' reports/allure-report-with-header/index.html
-        cat combined_header.html reports/allure-report-with-header/index.html > temp && mv temp reports/allure-report-with-header/index.html
+        sed -i "s|<head>|<head>$CACHE_BUSTING_TAGS<link rel=\"icon\" type=\"image/svg+xml\" href=\"favicon.svg\"><title>Playwright E2E Test Report</title>|" reports/allure-report-with-header/index.html
+        
+        # Combine header, metadata, and report
+        cat header.html metadata.html reports/allure-report-with-header/index.html > temp && mv temp reports/allure-report-with-header/index.html
 
     - name: Setup Pages
       if: always()
