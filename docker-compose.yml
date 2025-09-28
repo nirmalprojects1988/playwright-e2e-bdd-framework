@@ -3,7 +3,6 @@ services:
   test:
     build: .
     volumes:
-      # CRITICAL PLUMBING: Maps the container results to the host machine
       - ./reports:/app/reports
       - ./src/fixtures:/app/src/fixtures
     environment:
@@ -13,6 +12,7 @@ services:
       - RETRIES=2
     user: root
     
-    # Ensures the service runs the updated Allure script
-    command: npm run test:all
-    restart: "no" # Necessary for --exit-code-from test to work
+    # Runs the updated 'docker:test' which uses 'test:all' script 
+    # (assuming no explicit 'command' override is present in your docker-compose file)
+    command: npm run docker:test 
+    restart: "no"
