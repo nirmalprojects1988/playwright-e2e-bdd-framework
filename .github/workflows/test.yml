@@ -42,6 +42,7 @@ jobs:
         echo "Attempting to download history from: ${REPORT_BASE_URL}"
         CACHE_BUSTER=$(date +%s%3N)
 
+        # Only download once with cache busting
         curl -fsSL --retry 5 "${REPORT_BASE_URL}/history/history.json?t=${CACHE_BUSTER}" -o ${PREVIOUS_HISTORY_DIR}/history.json || true
         curl -fsSL --retry 5 "${REPORT_BASE_URL}/widgets/summary.json?t=${CACHE_BUSTER}" -o reports/allure-results/widgets/summary.json || true
         curl -fsSL --retry 5 "${REPORT_BASE_URL}/widgets/duration.json?t=${CACHE_BUSTER}" -o reports/allure-results/widgets/duration.json || true
@@ -89,10 +90,10 @@ jobs:
         # Install rsync
         sudo apt-get update && sudo apt-get install -y rsync || true
 
-        # Generate report using history (downloaded earlier)
+        # Generate report with history included
         allure generate reports/allure-results --clean -o reports/allure-report
 
-        # Copy new history back into results for next run
+        # Copy new history back for future runs
         NEW_HISTORY_SOURCE=reports/allure-report/history
         NEW_HISTORY_DEST=reports/allure-results/history
         mkdir -p ${NEW_HISTORY_DEST}
@@ -137,5 +138,5 @@ jobs:
 
     # 8. Cleanup Docker Cache
     - name: Delete Docker Build Cache
-      if: success()
+      if: always()
       run: docker builder prune -f
