@@ -24,6 +24,22 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    # Download history from GitHub Pages
+    - name: Download Allure history
+      if: always()
+      run: |
+        PREVIOUS_HISTORY_DIR=allure-history
+        # Create history directory
+        mkdir -p reports/allure-results/history
+        # Download history if it exists
+        if curl -s -o /dev/null -w "%{http_code}" https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history/ | grep -q "200"; then
+          wget https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history/history.json -P reports/allure-results/history/ || true
+          wget https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history/history-trend.json -P reports/allure-results/history/ || true
+          wget https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history/duration-trend.json -P reports/allure-results/history/ || true
+          wget https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history/categories-trend.json -P reports/allure-results/history/ || true
+          wget https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history/retry-trend.json -P reports/allure-results/history/ || true
+        fi
+
     - name: Set up Docker Compose
       uses: ndeloof/install-compose-action@v0.0.1
     
@@ -44,22 +60,31 @@ jobs:
     - name: Generate Allure Report
       if: always()
       run: npm run report:generate
-    
-    - name: Create initial pages content
+
+    - name: Update Report Index and Preserve History
       if: success() && github.ref == 'refs/heads/main'
       run: |
-        mkdir -p public
-        echo "<html><body><h1>Playwright E2E BDD Framework</h1><p>Test Reports will appear here.</p></body></html>" > public/index.html
+        # Add custom index page header
+        echo '<h1>Playwright E2E BDD Framework - Test Reports</h1>' > header.html
+        # Combine with Allure report
+        mkdir -p reports/allure-report-with-header
+        cp -r reports/allure-report/* reports/allure-report-with-header/
+        # Create history directory in published report
+        mkdir -p reports/allure-report-with-header/history
+        # Copy history files to published report
+        cp -r reports/allure-results/history/* reports/allure-report-with-header/history/ || true
+        # Update index page with header
+        cat header.html | cat - reports/allure-report-with-header/index.html > temp && mv temp reports/allure-report-with-header/index.html
 
     - name: Setup Pages
       if: success() && github.ref == 'refs/heads/main'
       uses: actions/configure-pages@v4
 
-    - name: Upload artifact
+    - name: Upload Report to Pages
       if: success() && github.ref == 'refs/heads/main'
       uses: actions/upload-pages-artifact@v3
       with:
-        path: public
+        path: reports/allure-report-with-header
         retention-days: 30
 
     - name: Deploy to GitHub Pages
