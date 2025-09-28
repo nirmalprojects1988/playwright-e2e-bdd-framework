@@ -33,7 +33,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-node-
 
-    # 2. DOWNLOAD HISTORY (For Trends - ROBUST VERSION)
+    # 2. DOWNLOAD HISTORY (For Trends - FINAL CACHE BUSTING FIX)
     - name: Download Allure history
       if: always()
       run: |
@@ -41,13 +41,20 @@ jobs:
         REPORT_BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
         
         mkdir -p ${PREVIOUS_HISTORY_DIR}
+        
+        # Define a unique cache-buster (current time in milliseconds)
+        CACHE_BUSTER=$(date +%s%3N)
+
+        # CRITICAL FIX: Append cache-buster to the URL to bypass browser/CDN caching for the history.json check.
+        HISTORY_URL="${REPORT_BASE_URL}/history/history.json?t=${CACHE_BUSTER}"
 
         # Check if history.json exists on the live site before attempting download
-        if curl -s -f -o /dev/null ${REPORT_BASE_URL}/history/history.json; then
+        if curl -s -f -o /dev/null ${HISTORY_URL}; then
           echo "Previous history found, downloading all files in the history directory..."
           
-          # Use robust wget command to download *all* necessary files for trend charts.
-          wget -r -l1 -np -nd -A '*' ${REPORT_BASE_URL}/history/ -P ${PREVIOUS_HISTORY_DIR} || true
+          # Use robust wget command with cache-buster appended to the base URL
+          # This guarantees we download the latest trend data, not a cached version.
+          wget -r -l1 -np -nd -A '*' "${REPORT_BASE_URL}/history/?t=${CACHE_BUSTER}" -P ${PREVIOUS_HISTORY_DIR} || true
         else
           echo "No previous history found. Generating first report with no trend data."
         fi
@@ -56,6 +63,7 @@ jobs:
       uses: ndeloof/install-compose-action@v0.0.1
     
     # 3. BUILD AND RUN TESTS
+    # The Docker step proceeds because of the '|| true' mask in docker-compose.yml
     - name: Build and run tests in Docker
       run: |
         docker-compose up --build --exit-code-from test
