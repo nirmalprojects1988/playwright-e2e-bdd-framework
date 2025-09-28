@@ -1,31 +1,13 @@
-version: '3.8'
-
+version: '3'
 services:
   test:
-    # Use 'build' if you have a local Dockerfile, or 'image' if you use a pre-built image
-    build:
-      context: .
-      dockerfile: Dockerfile
-    
-    # Set the working directory inside the container
-    working_dir: /app
-    
-    # Command to run your tests (This should generate the allure-results files)
-    command: npm run cucumber:tests
-    
-    # CRITICAL FIX: VOLUME MAPPING
-    # This maps the results folder from the container to the host machine (GitHub Runner)
-    # 
-    # Left side (Host): ./reports/allure-results -> This path is accessed by the GitHub workflow
-    # Right side (Container): /app/reports/allure-results -> This path is where your tests write results
+    build: .
     volumes:
-      - ./reports/allure-results:/app/reports/allure-results
-    
-    # Environment variables (optional, adjust as needed)
+      - ./reports:/app/reports
+      - ./src/fixtures:/app/src/fixtures
     environment:
-      - NODE_ENV=development
-      - ALLURE_RESULTS_DIR=/app/reports/allure-results
-
-    # Ensure the container exits after the tests are done
-    # This is necessary for the 'docker-compose up --exit-code-from test' command in your workflow
-    restart: "no"
+      - CI=true
+      - NODE_ENV=ci
+      - PWDEBUG=0
+      - RETRIES=2
+    user: root
