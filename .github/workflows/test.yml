@@ -45,6 +45,12 @@ jobs:
       if: always()
       run: npm run report:generate
     
+    - name: Create initial pages content
+      if: success() && github.ref == 'refs/heads/main'
+      run: |
+        mkdir -p public
+        echo "<html><body><h1>Playwright E2E BDD Framework</h1><p>Test Reports will appear here.</p></body></html>" > public/index.html
+
     - name: Setup Pages
       if: success() && github.ref == 'refs/heads/main'
       uses: actions/configure-pages@v4
@@ -53,7 +59,7 @@ jobs:
       if: success() && github.ref == 'refs/heads/main'
       uses: actions/upload-pages-artifact@v3
       with:
-        path: reports/allure-report
+        path: public
         retention-days: 30
 
     - name: Deploy to GitHub Pages

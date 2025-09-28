@@ -4,7 +4,6 @@ module.exports = {
     require: ['tests/step-definitions/**/*.ts', 'tests/support/*.ts'],
     format: ['progress-bar'],
     formatOptions: { snippetInterface: 'async-aware' },
-    publishQuiet: true,
     timeout: 30000
   }
 }
