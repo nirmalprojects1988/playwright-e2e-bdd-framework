@@ -57,11 +57,10 @@ jobs:
       run: |
         docker-compose up --build --exit-code-from test
     
-    # 4. FIX Permissions and Clean up (CRITICAL for host access)
+    # 4. FIX Permissions (CRITICAL for host access)
     - name: Fix permissions for Allure results
       if: always()
       run: |
-        # Ensures the runner can read the files written by the container (often as root)
         sudo chmod -R 777 reports/allure-results
 
     # 5. INSTALL ALLURE & GENERATE REPORT
@@ -149,10 +148,14 @@ jobs:
         # Update the report HTML with our custom content, favicon, and cache tags
         sed -i "s|<head>|<head>$CACHE_BUSTING_TAGS<link rel=\"icon\" type=\"image/svg+xml\" href=\"favicon.svg\"><title>Playwright E2E Test Report</title>|" reports/allure-report-with-header/index.html
         
-        # Robustly insert custom header/metadata after the <body> tag
-        CUSTOM_HEADER_CONTENT=$(cat header.html metadata.html)
+        # CRITICAL FIX: Strip all newlines (tr -d '\n') from the header and metadata before processing.
+        # This prevents the unwanted \n\n characters from appearing in the final HTML source.
+        HEADER_CONTENT=$(cat header.html | tr -d '\n')
+        METADATA_CONTENT=$(cat metadata.html | tr -d '\n')
+        CUSTOM_HEADER_CONTENT="$HEADER_CONTENT$METADATA_CONTENT"
         
-        ESCAPED_CONTENT=$(echo "$CUSTOM_HEADER_CONTENT" | sed ':a;N;$!ba;s/\n/\\n/g;s/[\&/]/\\&/g')
+        # Robustly insert custom header/metadata after the <body> tag
+        ESCAPED_CONTENT=$(echo "$CUSTOM_HEADER_CONTENT" | sed 's/[\&/]/\\&/g')
         
         sed -i "/<body>/a\\
         $ESCAPED_CONTENT" reports/allure-report-with-header/index.html
