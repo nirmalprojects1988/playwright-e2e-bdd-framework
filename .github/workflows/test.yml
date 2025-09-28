@@ -75,14 +75,13 @@ jobs:
         allure generate reports/allure-results --clean -o reports/allure-report
 
         # 3. FIX: Save the NEWLY GENERATED history back to reports/allure-results
-        # This fixes trends for the next run and prevents the 'cp: cannot stat' error
         NEW_HISTORY_SOURCE=reports/allure-report/history
         NEW_HISTORY_DEST=reports/allure-results/history
         mkdir -p ${NEW_HISTORY_DEST}
         # Use safe copy: cp -r source/. destination
         cp -r ${NEW_HISTORY_SOURCE}/. ${NEW_HISTORY_DEST} || true
         
-        # Create header with styling
+        # Create header with styling (saved to files)
         cat << 'EOF' > header.html
         <style>
           .custom-header {
@@ -131,6 +130,9 @@ jobs:
         </div>
         EOF
         
+        # Combine header and metadata into one variable for stable SED insertion
+        CUSTOM_HEADER_CONTENT=$(cat header.html metadata.html)
+
         # Combine with Allure report
         mkdir -p reports/allure-report-with-header
         cp -r reports/allure-report/* reports/allure-report-with-header/
@@ -145,10 +147,10 @@ jobs:
         # This SED injection into <head> is fine.
         sed -i "s|<head>|<head>$CACHE_BUSTING_TAGS<link rel=\"icon\" type=\"image/svg+xml\" href=\"favicon.svg\"><title>Playwright E2E Test Report</title>|" reports/allure-report-with-header/index.html
         
-        # 5. CRITICAL FIX: Safely insert custom header/metadata after the opening <body> tag
-        # This resolves the asset loading/blank report issue.
-        CUSTOM_HEADER_CONTENT=$(cat header.html metadata.html)
-        awk '/<body>/{print; print "'"$CUSTOM_HEADER_CONTENT"'"; next}1' reports/allure-report-with-header/index.html > temp && mv temp reports/allure-report-with-header/index.html
+        # 5. CRITICAL FIX: Replace AWK with stable SED for custom header injection
+        # Use SED to insert the multi-line content after the <body> tag
+        sed -i "/<body>/a\\
+        $(echo "$CUSTOM_HEADER_CONTENT" | sed 's/[\&/]/\\&/g')" reports/allure-report-with-header/index.html
 
     - name: Setup Pages
       if: always()
