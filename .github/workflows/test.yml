@@ -6,11 +6,11 @@ on:
   pull_request:
     branches: [ main ]
 
-# Sets permissions of the GITHUB_TOKEN
+# CRITICAL: Sets permissions required for Actions to read/write pages and get the ID token
 permissions:
   contents: read
-  pages: write
-  id-token: write
+  pages: write 
+  id-token: write 
 
 # Allow one concurrent deployment
 concurrency:
@@ -24,7 +24,16 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # 1. FIX: Robustly download history from GitHub Pages (for trend data)
+    # 1. NPM CACHE: Cache node modules to speed up subsequent builds
+    - name: Cache Node Modules
+      uses: actions/cache@v4
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+
+    # 2. DOWNLOAD HISTORY (For Trends)
     - name: Download Allure history
       if: always()
       run: |
@@ -33,10 +42,8 @@ jobs:
         
         mkdir -p ${PREVIOUS_HISTORY_DIR}
 
-        # Use a reliable check to see if the history file exists
         if curl -s -f -o /dev/null ${REPORT_BASE_URL}/history/history.json; then
           echo "Previous history found, downloading files..."
-          # Download all necessary trend files
           wget -r -l1 -np -nd -A '*-trend.json,history.json' ${REPORT_BASE_URL}/history/ -P ${PREVIOUS_HISTORY_DIR} || true
         else
           echo "No previous history found. Generating first report."
@@ -45,38 +52,40 @@ jobs:
     - name: Set up Docker Compose
       uses: ndeloof/install-compose-action@v0.0.1
     
+    # 3. BUILD AND RUN TESTS
     - name: Build and run tests in Docker
       run: |
         docker-compose up --build --exit-code-from test
     
-    # 2. FIX: Permissions after Docker run (CRITICAL for host access due to user: root)
+    # 4. FIX Permissions and Clean up (CRITICAL for host access)
     - name: Fix permissions for Allure results
       if: always()
       run: |
-        # Ensures the runner can read the files written by the container
+        # Ensures the runner can read the files written by the container (often as root)
         sudo chmod -R 777 reports/allure-results
 
-    - name: Install Allure and setup reports directory
+    # 5. INSTALL ALLURE & GENERATE REPORT
+    - name: Generate Allure Report
       if: always()
       run: |
+        # Install Allure CLI (needed on host machine)
         curl -o allure-2.24.1.tgz -OLs https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.24.1/allure-commandline-2.24.1.tgz
         sudo tar -zxvf allure-2.24.1.tgz -C /opt/
         sudo ln -s /opt/allure-2.24.1/bin/allure /usr/bin/allure
         sudo mkdir -p reports/allure-results reports/allure-report
         sudo chmod -R 777 reports
         sudo chown -R $USER:$USER reports
-    
-    - name: Generate Allure Report
-      if: always()
-      run: |
-        # Explicitly run allure generate
+        
+        # Generate the HTML report using the downloaded history for trends
         allure generate reports/allure-results --clean -o reports/allure-report
 
-        # 3. FIX: Save the NEWLY GENERATED history back to reports/allure-results
+        # Save the NEW history back for the next run's download step
         NEW_HISTORY_SOURCE=reports/allure-report/history
         NEW_HISTORY_DEST=reports/allure-results/history
         mkdir -p ${NEW_HISTORY_DEST}
         cp -r ${NEW_HISTORY_SOURCE}/. ${NEW_HISTORY_DEST} || true
+        
+        # Start of Header & Caching Injection Logic
         
         # Create header with styling
         cat << 'EOF' > header.html
@@ -134,22 +143,23 @@ jobs:
         # Download favicon
         curl -s https://raw.githubusercontent.com/microsoft/playwright/main/assets/playwright-logo.svg > reports/allure-report-with-header/favicon.svg
         
-        # 4. FIX: CACHE BUSTING: Inject no-cache meta tags into index.html
+        # CACHE BUSTING: Inject no-cache meta tags into index.html
         CACHE_BUSTING_TAGS='<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0">'
         
         # Update the report HTML with our custom content, favicon, and cache tags
         sed -i "s|<head>|<head>$CACHE_BUSTING_TAGS<link rel=\"icon\" type=\"image/svg+xml\" href=\"favicon.svg\"><title>Playwright E2E Test Report</title>|" reports/allure-report-with-header/index.html
         
-        # 5. CRITICAL FIX: Robustly insert custom header/metadata after the <body> tag
+        # Robustly insert custom header/metadata after the <body> tag
         CUSTOM_HEADER_CONTENT=$(cat header.html metadata.html)
         
-        # Escape newlines and slashes in the content to make SED insertion safe
         ESCAPED_CONTENT=$(echo "$CUSTOM_HEADER_CONTENT" | sed ':a;N;$!ba;s/\n/\\n/g;s/[\&/]/\\&/g')
         
-        # Use stable SED to insert the escaped content immediately after the <body> tag
         sed -i "/<body>/a\\
         $ESCAPED_CONTENT" reports/allure-report-with-header/index.html
+        # End of Header & Caching Injection Logic
 
+
+    # 6. DEPLOY TO GITHUB PAGES
     - name: Setup Pages
       if: always()
       uses: actions/configure-pages@v4
@@ -158,10 +168,15 @@ jobs:
       if: always()
       uses: actions/upload-pages-artifact@v3
       with:
-        path: reports/allure-report-with-header
+        path: reports/allure-report-with-header 
         retention-days: 90
 
     - name: Deploy to GitHub Pages
       if: always()
       id: deployment
       uses: actions/deploy-pages@v4
+
+    # 7. DELETE DOCKER CACHE (If successful)
+    - name: Delete Docker Build Cache
+      if: success()
+      run: docker builder prune -f
