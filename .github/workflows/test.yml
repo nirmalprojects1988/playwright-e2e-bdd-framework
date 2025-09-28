@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ main ]
 
-# CRITICAL: Sets permissions required for Actions to read/write pages and get the ID token
+# CRITICAL: Sets permissions required for Actions
 permissions:
   contents: read
   pages: write 
@@ -24,7 +24,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # 1. NPM CACHE: Cache node modules to speed up subsequent builds
+    # 1. NPM CACHE
     - name: Cache Node Modules
       uses: actions/cache@v4
       with:
@@ -57,11 +57,26 @@ jobs:
       run: |
         docker-compose up --build --exit-code-from test
     
-    # 4. FIX Permissions (CRITICAL for host access)
+    # 4. FIX Permissions
     - name: Fix permissions for Allure results
       if: always()
       run: |
         sudo chmod -R 777 reports/allure-results
+
+    # 4.5. CRITICAL FIX: Convert Cucumber JSON to Allure Results on the host machine
+    - name: Convert Cucumber JSON to Allure Format
+      if: always()
+      run: |
+        # Ensure node dependencies are available on the host machine for the script
+        npm install
+        
+        if [ -f reports/cucumber.json ]; then
+          # This executes the conversion script on the host, using the cucumber.json file
+          node tests/support/generate-allure.js
+          echo "Conversion successful."
+        else
+          echo "Warning: reports/cucumber.json not found. Allure report may be empty."
+        fi
 
     # 5. INSTALL ALLURE & GENERATE REPORT
     - name: Generate Allure Report
@@ -84,7 +99,7 @@ jobs:
         mkdir -p ${NEW_HISTORY_DEST}
         cp -r ${NEW_HISTORY_SOURCE}/. ${NEW_HISTORY_DEST} || true
         
-        # Start of Header & Caching Injection Logic
+        # Start of Header Injection Logic (Includes \n\n fix)
         
         # Create header with styling
         cat << 'EOF' > header.html
@@ -149,7 +164,6 @@ jobs:
         sed -i "s|<head>|<head>$CACHE_BUSTING_TAGS<link rel=\"icon\" type=\"image/svg+xml\" href=\"favicon.svg\"><title>Playwright E2E Test Report</title>|" reports/allure-report-with-header/index.html
         
         # CRITICAL FIX: Strip all newlines (tr -d '\n') from the header and metadata before processing.
-        # This prevents the unwanted \n\n characters from appearing in the final HTML source.
         HEADER_CONTENT=$(cat header.html | tr -d '\n')
         METADATA_CONTENT=$(cat metadata.html | tr -d '\n')
         CUSTOM_HEADER_CONTENT="$HEADER_CONTENT$METADATA_CONTENT"
@@ -159,7 +173,6 @@ jobs:
         
         sed -i "/<body>/a\\
         $ESCAPED_CONTENT" reports/allure-report-with-header/index.html
-        # End of Header & Caching Injection Logic
 
 
     # 6. DEPLOY TO GITHUB PAGES
