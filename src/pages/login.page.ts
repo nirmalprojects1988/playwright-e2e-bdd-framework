@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 import { BasePage } from './base.page';
-import { CONFIG } from '@/constants/config';
+import { CONFIG } from '../constants/config';
 
 export class LoginPage extends BasePage {
   constructor(page: Page) {

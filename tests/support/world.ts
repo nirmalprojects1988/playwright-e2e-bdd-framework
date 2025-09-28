@@ -1,6 +1,6 @@
 import { setWorldConstructor, World } from '@cucumber/cucumber';
 import { Browser, BrowserContext, Page, chromium } from '@playwright/test';
-import { LoginPage } from '@/pages/login.page';
+import { LoginPage } from '../../src/pages/login.page';
 
 export class CustomWorld extends World {
   private browser!: Browser;

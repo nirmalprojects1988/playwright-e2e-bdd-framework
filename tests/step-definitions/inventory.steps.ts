@@ -1,6 +1,6 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
-import { InventoryPage } from '@/pages/inventory.page';
+import { InventoryPage } from '../../src/pages/inventory.page';
 
 let inventoryPage: InventoryPage;
 

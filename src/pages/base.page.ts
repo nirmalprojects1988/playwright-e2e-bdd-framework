@@ -1,5 +1,5 @@
 import { Page } from '@playwright/test';
-import { CONFIG } from '@/constants/config';
+import { CONFIG } from '../constants/config';
 
 export class BasePage {
   constructor(protected page: Page) {}

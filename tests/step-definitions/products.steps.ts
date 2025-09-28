@@ -1,6 +1,6 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
-import { ProductsAPI } from '@/api/products.api';
+import { ProductsAPI } from '../../src/api/products.api';
 import { DataTable } from '@cucumber/cucumber';
 
 const productsAPI = new ProductsAPI();
