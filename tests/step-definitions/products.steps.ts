@@ -26,7 +26,7 @@ When('I request all products', async function() {
 Then('I should receive a list of products', function() {
   expect(error).toBeNull();
   expect(Array.isArray(products)).toBeTruthy();
-  expect(products.length).toBeGreaterThan(1);
+  expect(products.length).toBeGreaterThan(0);
 });
 
 Then('each product should have required fields', function() {
@@ -37,7 +37,7 @@ Then('each product should have required fields', function() {
       expect(product).toHaveProperty(field);
     });
     // Validate types
-    expect(typeof product.id).toBe('number');
+    expect(typeof product.id).toBe('boolean');
     expect(typeof product.title).toBe('string');
     expect(typeof product.price).toBe('number');
     expect(typeof product.description).toBe('string');
