@@ -62,16 +62,54 @@ jobs:
       run: |
         npm run report:generate
         
+        # Create header with styling
+        cat << 'EOF' > header.html
+        <style>
+          .custom-header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          }
+          .custom-header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+          }
+          .metadata-box {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+          }
+          .metadata-box p {
+            margin: 5px 0;
+            color: #2c3e50;
+          }
+          .metadata-box strong {
+            color: #2c3e50;
+          }
+        </style>
+        <div class="custom-header">
+          <h1>Playwright E2E BDD Framework - Test Reports</h1>
+        </div>
+        EOF
+        
         # Add metadata about test run
         TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
-        echo "<div style='background: #f8f9fa; padding: 12px; margin-bottom: 20px; border-radius: 4px;'>" > metadata.html
-        echo "<strong>Last Updated:</strong> $TIMESTAMP<br>" >> metadata.html
-        echo "<strong>Branch:</strong> ${GITHUB_REF#refs/heads/}<br>" >> metadata.html
-        echo "<strong>Commit:</strong> $GITHUB_SHA<br>" >> metadata.html
-        echo "</div>" >> metadata.html
+        COMMIT_URL="https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA"
         
-        # Add custom header and metadata
-        echo '<h1>Playwright E2E BDD Framework - Test Reports</h1>' > header.html
+        cat << EOF > metadata.html
+        <div class="metadata-box">
+          <p><strong>Last Updated:</strong> $TIMESTAMP</p>
+          <p><strong>Branch:</strong> ${GITHUB_REF#refs/heads/}</p>
+          <p><strong>Commit:</strong> <a href="$COMMIT_URL" target="_blank">${GITHUB_SHA:0:7}</a></p>
+          <p><strong>Repository:</strong> <a href="https://github.com/$GITHUB_REPOSITORY" target="_blank">$GITHUB_REPOSITORY</a></p>
+        </div>
+        EOF
         
         # Combine with Allure report
         mkdir -p reports/allure-report-with-header
@@ -81,8 +119,14 @@ jobs:
         mkdir -p reports/allure-report-with-header/history
         cp -r reports/allure-results/history/* reports/allure-report-with-header/history/ || true
         
+        # Download favicon
+        curl -s https://raw.githubusercontent.com/microsoft/playwright/main/assets/playwright-logo.svg > reports/allure-report-with-header/favicon.svg
+        
         # Combine header, metadata, and report
         cat header.html metadata.html > combined_header.html
+        
+        # Update the report HTML with our custom content and favicon
+        sed -i 's/<head>/<head><link rel="icon" type="image\/svg+xml" href="favicon.svg"><title>Playwright E2E Test Report<\/title>/' reports/allure-report-with-header/index.html
         cat combined_header.html reports/allure-report-with-header/index.html > temp && mv temp reports/allure-report-with-header/index.html
 
     - name: Setup Pages
