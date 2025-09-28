@@ -12,7 +12,6 @@ services:
       - RETRIES=2
     user: root
     
-    # The '|| true' mask remains to force workflow continuation, but the command
-    # now executes the native Allure reporter from package.json.
+    # CRITICAL FIX: Ensures the workflow continues to reporting even if tests fail (exit code 1)
     command: sh -c "npm run test:all || true" 
     restart: "no"
