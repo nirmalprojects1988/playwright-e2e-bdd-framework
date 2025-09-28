@@ -46,7 +46,7 @@ jobs:
         if curl -s -f -o /dev/null ${REPORT_BASE_URL}/history/history.json; then
           echo "Previous history found, downloading all files in the history directory..."
           
-          # CRITICAL FIX: Use robust wget command to download *all* necessary files for trend charts.
+          # Use robust wget command to download *all* necessary files for trend charts.
           wget -r -l1 -np -nd -A '*' ${REPORT_BASE_URL}/history/ -P ${PREVIOUS_HISTORY_DIR} || true
         else
           echo "No previous history found. Generating first report with no trend data."
@@ -56,6 +56,7 @@ jobs:
       uses: ndeloof/install-compose-action@v0.0.1
     
     # 3. BUILD AND RUN TESTS
+    # Execution is now masked by '|| true' in docker-compose.yml
     - name: Build and run tests in Docker
       run: |
         docker-compose up --build --exit-code-from test
@@ -101,6 +102,9 @@ jobs:
         sudo chmod -R 777 reports
         sudo chown -R $USER:$USER reports
         
+        # Install rsync for robust copying (needed for the next steps)
+        sudo apt-get update && sudo apt-get install -y rsync || true
+        
         # Generate the HTML report using the downloaded history for trends
         allure generate reports/allure-results --clean -o reports/allure-report
 
@@ -110,15 +114,19 @@ jobs:
         NEW_HISTORY_SOURCE=reports/allure-report/history
         NEW_HISTORY_DEST=reports/allure-results/history
         mkdir -p ${NEW_HISTORY_DEST}
-        cp -r ${NEW_HISTORY_SOURCE}/. ${NEW_HISTORY_DEST} || true
+        
+        # CRITICAL FIX: Use rsync for the history copy operation and verify source exists
+        if [ -d ${NEW_HISTORY_SOURCE} ]; then
+          rsync -a ${NEW_HISTORY_SOURCE}/ ${NEW_HISTORY_DEST}/
+          echo "Successfully copied new history to results directory."
+        else
+          echo "Warning: New history directory not found at ${NEW_HISTORY_SOURCE}. History will not be updated for the next run."
+        fi
         
         # 2. Prepare the final deployment folder
         mkdir -p reports/allure-report-with-header
         
-        # Install rsync for robust copying (needed for the next step)
-        sudo apt-get update && sudo apt-get install -y rsync || true
-        
-        # CRITICAL FIX: Use rsync for robust and complete file copying, ensuring the history folder is included
+        # Use rsync for robust and complete file copying (including history)
         rsync -a reports/allure-report/ reports/allure-report-with-header/
         
         # Download favicon
