@@ -1,4 +1,4 @@
-name: E2E Tests 
+name: E2E Tests
 
 on: 
   push:
@@ -6,13 +6,11 @@ on:
   pull_request:
     branches: [ main ]
 
-# CRITICAL: Sets permissions required for Actions
 permissions:
   contents: read
-  pages: write 
-  id-token: write 
+  pages: write
+  id-token: write
 
-# Allow one concurrent deployment
 concurrency:
   group: "pages"
   cancel-in-progress: true
@@ -33,93 +31,83 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-node-
 
-    # 2. DOWNLOAD HISTORY (For Trends - FINAL DEFINITIVE DOWNLOAD FIX)
+    # 2. DOWNLOAD HISTORY (Trend Charts FIX)
     - name: Download Allure history
       if: always()
-      id: download_history
       run: |
-        PREVIOUS_HISTORY_DIR=reports/allure-results/history
         REPORT_BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+        PREVIOUS_HISTORY_DIR=reports/allure-results/history
+        mkdir -p ${PREVIOUS_HISTORY_DIR} reports/allure-results/widgets
         
-        # Ensure the target history and history/widgets directories exist
-        mkdir -p reports/allure-results/widgets reports/allure-results/history
-        
+        echo "Attempting to download history from: ${REPORT_BASE_URL}"
         CACHE_BUSTER=$(date +%s%3N)
 
-        echo "Attempting to download history from: ${REPORT_BASE_URL}"
-
-        # CRITICAL FIX: Use explicit curl commands with cache-busting to download all necessary history files.
         curl -fsSL --retry 5 "${REPORT_BASE_URL}/history/history.json?t=${CACHE_BUSTER}" -o ${PREVIOUS_HISTORY_DIR}/history.json || true
-        
-        # These widget files are needed for the trend charts.
         curl -fsSL --retry 5 "${REPORT_BASE_URL}/widgets/summary.json?t=${CACHE_BUSTER}" -o reports/allure-results/widgets/summary.json || true
         curl -fsSL --retry 5 "${REPORT_BASE_URL}/widgets/duration.json?t=${CACHE_BUSTER}" -o reports/allure-results/widgets/duration.json || true
 
         if [ -f "${PREVIOUS_HISTORY_DIR}/history.json" ]; then
-            # The output setting is correct if you were using 'outputs' in subsequent steps, 
-            # but for simplicity, we rely on the file existing.
-            echo "Successfully downloaded previous history."
+          echo "✅ Successfully downloaded previous history for trends."
         else
-            echo "Warning: No history files found on GitHub Pages. Generating first report."
+          echo "⚠️ No history found. This will be the first run."
         fi
 
+    # 3. Set up Docker Compose
     - name: Set up Docker Compose
       uses: ndeloof/install-compose-action@v0.0.1
-      
-    # 3. BUILD AND RUN TESTS
+
+    # 4. BUILD AND RUN TESTS
     - name: Build and run tests in Docker
-      run: |
-        docker-compose up --build --exit-code-from test
-    
-    # 4. FIX Permissions and Convert Cucumber JSON
+      run: docker-compose up --build --exit-code-from test
+
+    # 5. FIX Permissions + Convert Cucumber JSON
     - name: Fix permissions and Convert Cucumber JSON
       if: always()
       run: |
-        # Ensure base reports directories exist and have open permissions (restored fix)
         sudo mkdir -p reports/allure-results reports/allure-report
         sudo chmod -R 777 reports
-        sudo chown -R $USER:$USER reports # Ensure ownership is correct
+        sudo chown -R $USER:$USER reports
 
         if [ -f reports/cucumber.json ]; then
-          npm ci # Install local dependencies for conversion script
+          npm ci
           mkdir -p reports/allure-results
           node tests/support/generate-allure.js
-          echo "Conversion successful."
+          echo "✅ Conversion successful."
         else
-          echo "Warning: reports/cucumber.json not found. Allure report may be empty. Proceeding to generation."
+          echo "⚠️ cucumber.json not found. Proceeding without conversion."
         fi
-        
-    # 5. Generate Allure Report and Prepare for Deployment
+
+    # 6. Generate Allure Report (with history fix)
     - name: Generate Allure Report and Prepare for Deployment
       if: always()
       run: |
-        # 5a. Install Allure CLI on the runner
+        # Install Allure CLI
         curl -o allure-2.24.1.tgz -OLs https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.24.1/allure-commandline-2.24.1.tgz
         sudo tar -zxvf allure-2.24.1.tgz -C /opt/
         sudo ln -s /opt/allure-2.24.1/bin/allure /usr/bin/allure
-        
-        # 5b. Install rsync (restored)
+
+        # Install rsync
         sudo apt-get update && sudo apt-get install -y rsync || true
 
-        # 5c. Generate the report. It uses reports/allure-results/history that was downloaded.
+        # Generate report using history (downloaded earlier)
         allure generate reports/allure-results --clean -o reports/allure-report
 
-        # 5d. CRITICAL FIX: Save the NEW history for the next run (restored)
+        # Copy new history back into results for next run
         NEW_HISTORY_SOURCE=reports/allure-report/history
         NEW_HISTORY_DEST=reports/allure-results/history
         mkdir -p ${NEW_HISTORY_DEST}
         if [ -d ${NEW_HISTORY_SOURCE} ]; then
           rsync -a ${NEW_HISTORY_SOURCE}/ ${NEW_HISTORY_DEST}/
-          echo "Successfully copied new history to results directory for next run."
+          echo "✅ Copied new history for next run."
+        else
+          echo "⚠️ No new history generated."
         fi
 
-        # 5e. Prepare the final deployment folder
+        # Prepare deployment folder
         mkdir -p reports/allure-report-with-header
-
-        # Copy the newly generated report
         rsync -a reports/allure-report/ reports/allure-report-with-header/
 
-        # --- Header/Metadata Injection ---
+        # Inject favicon + headers
         curl -s https://raw.githubusercontent.com/microsoft/playwright/main/assets/playwright-logo.svg > reports/allure-report-with-header/favicon.svg
         CACHE_BUSTING_TAGS='<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0">'
         sed -i "s|<head>|<head>$CACHE_BUSTING_TAGS<link rel=\"icon\" type=\"image/svg+xml\" href=\"favicon.svg\"><title>Playwright E2E Test Report</title>|" reports/allure-report-with-header/index.html
@@ -129,23 +117,25 @@ jobs:
         ESCAPED_CONTENT=$(echo "$CUSTOM_HEADER_CONTENT" | sed 's/[\&/]/\\&/g')
         sed -i "/<body>/a\\
         $ESCAPED_CONTENT" reports/allure-report-with-header/index.html
-        
-    # 6. DEPLOY TO GITHUB PAGES
+
+    # 7. Deploy to GitHub Pages
     - name: Setup Pages
       if: always()
       uses: actions/configure-pages@v4
+
     - name: Upload Report to Pages
       if: always()
       uses: actions/upload-pages-artifact@v3
       with:
         path: reports/allure-report-with-header
         retention-days: 90
+
     - name: Deploy to GitHub Pages
       if: always()
       id: deployment
       uses: actions/deploy-pages@v4
-      
-    # 7. DELETE DOCKER CACHE
+
+    # 8. Cleanup Docker Cache
     - name: Delete Docker Build Cache
       if: success()
       run: docker builder prune -f
