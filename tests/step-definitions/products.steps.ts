@@ -26,7 +26,7 @@ When('I request all products', async function() {
 Then('I should receive a list of products', function() {
   expect(error).toBeNull();
   expect(Array.isArray(products)).toBeTruthy();
-  expect(products.length).toBeGreaterThan(0);
+  expect(products.length).toBeGreaterThan(1);
 });
 
 Then('each product should have required fields', function() {
