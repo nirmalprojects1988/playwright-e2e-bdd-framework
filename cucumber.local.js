@@ -1,12 +1,8 @@
 const path = require('path');
 const fs = require('fs');
 
-// Create results directory
-const resultsDir = path.join(process.cwd(), 'reports', 'allure-results');
-if (fs.existsSync(resultsDir)) {
-  fs.rmSync(resultsDir, { recursive: true, force: true });
-}
-fs.mkdirSync(resultsDir, { recursive: true });
+// FIX: Removed manual directory creation/cleanup logic to resolve EISDIR error.
+// The allure reporter or the allure-commandline will handle directory existence.
 
 module.exports = {
   default: {
@@ -14,7 +10,8 @@ module.exports = {
     require: ['tests/step-definitions/**/*.ts', 'tests/support/*.ts'],
     format: [
       'progress',
-      ['./tests/support/allure.setup.ts', resultsDir]
+      // CRITICAL FIX: Pass the results path as a simple relative string argument.
+      ['./tests/support/allure.setup.ts', 'reports/allure-results'] 
     ],
     formatOptions: { 
       snippetInterface: 'async-aware'
