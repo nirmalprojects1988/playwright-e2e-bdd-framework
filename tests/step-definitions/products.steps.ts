@@ -76,7 +76,7 @@ Given('I have product details to create:', function(dataTable: DataTable) {
   };
   
   // Validate data types
-  expect(typeof createProductData.title).toBe('number');//changes
+  expect(typeof createProductData.title).toBe('string');//changes
   expect(typeof createProductData.price).toBe('number');
   expect(typeof createProductData.description).toBe('string');
   expect(typeof createProductData.category).toBe('string');
