@@ -31,27 +31,13 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-node-
 
-    # 2. DOWNLOAD HISTORY (Trend Charts FIX)
-    - name: Download Allure history
-      if: always()
-      run: |
-        REPORT_BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
-        PREVIOUS_HISTORY_DIR=reports/allure-results/history
-        mkdir -p ${PREVIOUS_HISTORY_DIR} reports/allure-results/widgets
-        
-        echo "Attempting to download history from: ${REPORT_BASE_URL}"
-        CACHE_BUSTER=$(date +%s%3N)
-
-        # Only download once with cache busting
-        curl -fsSL --retry 5 "${REPORT_BASE_URL}/history/history.json?t=${CACHE_BUSTER}" -o ${PREVIOUS_HISTORY_DIR}/history.json || true
-        curl -fsSL --retry 5 "${REPORT_BASE_URL}/widgets/summary.json?t=${CACHE_BUSTER}" -o reports/allure-results/widgets/summary.json || true
-        curl -fsSL --retry 5 "${REPORT_BASE_URL}/widgets/duration.json?t=${CACHE_BUSTER}" -o reports/allure-results/widgets/duration.json || true
-
-        if [ -f "${PREVIOUS_HISTORY_DIR}/history.json" ]; then
-          echo "✅ Successfully downloaded previous history for trends."
-        else
-          echo "⚠️ No history found. This will be the first run."
-        fi
+    # 2. RESTORE PREVIOUS ALLURE RESULTS (history for trend reports)
+    - name: Download previous Allure results
+      uses: actions/download-artifact@v4
+      with:
+        name: allure-results
+        path: reports/allure-results
+      continue-on-error: true
 
     # 3. Set up Docker Compose
     - name: Set up Docker Compose
@@ -78,7 +64,7 @@ jobs:
           echo "⚠️ cucumber.json not found. Proceeding without conversion."
         fi
 
-    # 6. Generate Allure Report (with history fix)
+    # 6. Generate Allure Report
     - name: Generate Allure Report and Prepare for Deployment
       if: always()
       run: |
@@ -90,10 +76,10 @@ jobs:
         # Install rsync
         sudo apt-get update && sudo apt-get install -y rsync || true
 
-        # Generate report with history included
+        # Generate report (with restored history)
         allure generate reports/allure-results --clean -o reports/allure-report
 
-        # Copy new history back for future runs
+        # Copy new history for artifact upload
         NEW_HISTORY_SOURCE=reports/allure-report/history
         NEW_HISTORY_DEST=reports/allure-results/history
         mkdir -p ${NEW_HISTORY_DEST}
@@ -136,7 +122,16 @@ jobs:
       id: deployment
       uses: actions/deploy-pages@v4
 
-    # 8. Cleanup Docker Cache
+    # 8. UPLOAD ALLURE RESULTS for next run (trend report)
+    - name: Upload Allure results artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: allure-results
+        path: reports/allure-results
+        retention-days: 7
+
+    # 9. Cleanup Docker Cache
     - name: Delete Docker Build Cache
       if: always()
       run: docker builder prune -f
